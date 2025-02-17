@@ -28,4 +28,7 @@ async function sendOtpMail(to, otp) {
   }
 }
 
-module.exports = { generateOtp, sendOtpMail };
+export{
+    generateOtp,
+    sendOtpMail
+}
