@@ -11,11 +11,11 @@ const noteSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    SourceAudio: {
+    sourceAudio: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Audio",
     },
-    SourceBook: {
+    sourceBook: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Book",
     },
