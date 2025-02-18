@@ -1,12 +1,14 @@
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import dotenv from "dotenv";
+dotenv.config({ path: "./.env" });
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, 
-  },
+    user: process.env.USER_EMAIL,
+    pass: process.env.USER_PASSWORD,
+  }
 });
 
 function generateOtp() {
@@ -15,7 +17,7 @@ function generateOtp() {
 
 async function sendOtpMail(to, otp) {
   const mailOptions = {
-    from: process.env.EMAIL_USER,
+    from: process.env.USER_EMAIL,
     to,
     subject: 'Email OTP Verification',
     text: `Your OTP code is: ${otp}`,

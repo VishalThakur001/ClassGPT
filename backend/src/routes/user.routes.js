@@ -7,18 +7,20 @@ import {
     refreshAccessToken,
     changePassword,
     getUserNotes,
-    getUser
+    getUser,
+    newOtp
 } from "../controllers/user.controller.js";
 import { authUser } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
 router.route("/register").post(registerUser);
+router.route("/new-otp").post(newOtp);
 router.route("/verify-otp").post(verifyOtp);
 router.route("/login").post(loginUser);
 router.route("/logout").post(authUser, logoutUser);
 router.route("/user").get(authUser, getUser);
-router.route("/user-data").get(authUser, getUserNotes);
+router.route("/user-notes").get(authUser, getUserNotes);
 router.route("/change-password").post(authUser, changePassword);
 router.route("/refresh-token").post(refreshAccessToken);
 

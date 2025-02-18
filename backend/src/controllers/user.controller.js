@@ -3,9 +3,11 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { User } from "../models/user.model.js";
 import { Note } from "../models/note.model.js";
-import { generateOtp, sendOtpMail } from "../utils/verifySignup.js"
-import { Otp } from "../models/otp.model.js"
-import jwt from "jsonwebtoken"
+import { generateOtp, sendOtpMail } from "../utils/verifySignup.js";
+import { Otp } from "../models/otp.model.js";
+import { BlacklistAccessToken } from "../models/blacklistAccessToken.model.js";
+import { BlacklistRefreshToken } from "../models/blacklistRefreshToken.model.js";
+import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshToken = async(userId) => {
     try {
@@ -27,12 +29,12 @@ const registerUser = asyncHandler(async (req, res) => {
     const { fullName, email, password } = req.body;
 
     if (!fullName || !email || !password) {
-        return next(new ApiError(400, "All fields are required!"));
+        return new ApiError(400, "All fields are required!");
     }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
-        return next(new ApiError(400, "User already exists!"));
+        return new ApiError(400, "User already exists!");
     }
 
     const otp = generateOtp()
@@ -93,21 +95,53 @@ const verifyOtp = async (req, res) => {
         .json(new ApiResponse(200, { user: newUser, accessToken, refreshToken }));
 };
 
+const newOtp = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if(!email){
+        return new ApiError(400, "Email is required!")
+    }
+
+    const oldOtp = await Otp.findOne({ email });
+
+    if(oldOtp){
+        await Otp.deleteOne({ email });
+    }
+
+    const otp = generateOtp();
+
+    try {
+        await sendOtpMail(email, otp);
+    } catch (error) {
+        return new ApiError(500, "Error sending OTP email");
+    }
+
+    const otpData = await Otp.create({
+        email,
+        otp,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "OTP sent to your email"));
+})
+
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-        return next(new ApiError(400, "All fields are required!"));
+        return new ApiError(400, "All fields are required!");
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-        return next(new ApiError(400, "User not found!"));
+        return new ApiError(400, "User not found!");
     }
 
     const isPasswordCorrect = await user.isPasswordCorrect(password);
     if (!isPasswordCorrect) {
-        return next(new ApiError(400, "Password is incorrect!"));
+        return new ApiError(400, "Password is incorrect!");
     }
 
     if (user.refreshToken) {
@@ -132,21 +166,21 @@ const changePassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword, confirmNewPassword } = req.body;
 
     if (!oldPassword || !newPassword || !confirmNewPassword) {
-        return next(new ApiError(400, "All fields are required!"));
+        return new ApiError(400, "All fields are required!");
     }
 
     if (newPassword !== confirmNewPassword) {
-        return next(new ApiError(400, "Passwords do not match!"));
+        return new ApiError(400, "Passwords do not match!");
     }
 
     const user = await User.findById(req.user?._id);
     if (!user) {
-        return next(new ApiError(404, "User not found!"));
+        return new ApiError(404, "User not found!");
     }
 
     const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
     if (!isPasswordCorrect) {
-        return next(new ApiError(400, "Old password is incorrect!"));
+        return new ApiError(400, "Old password is incorrect!");
     }
 
     user.password = newPassword;
@@ -159,7 +193,7 @@ const logoutUser = asyncHandler( async (req, res) => {
     
     const accessToken = req.cookies?.accessToken || req.headers["authorization"]?.split(" ")[1];
     const refreshToken = req.cookies?.refreshToken || req.headers["x-refresh-token"];
-
+    
     if (!refreshToken){
         throw new ApiError(400, "Refresh token required")
     }
@@ -170,7 +204,7 @@ const logoutUser = asyncHandler( async (req, res) => {
     try {
         await BlacklistAccessToken.create({ accessToken });
         await BlacklistRefreshToken.create({ refreshToken });
-
+        
         await User.findByIdAndUpdate(
             req.user._id,
             {
@@ -200,7 +234,7 @@ const logoutUser = asyncHandler( async (req, res) => {
 
 const refreshAccessToken = asyncHandler( async (req, res) => {
 
-    const incomingRefreshToken = req.cookies?.refreshToken || req.headers.authorization?.split(" ")[1];
+    const incomingRefreshToken = req.cookies?.refreshToken || req.headers["x-refresh-token"];
 
     if(!incomingRefreshToken){
         throw new ApiError(401, "Unauthorized Request")
@@ -221,14 +255,21 @@ const refreshAccessToken = asyncHandler( async (req, res) => {
             throw new ApiError(401, "Refresh Token Expired")
         }
 
+        if(user.refreshToken !== incomingRefreshToken){
+            throw new ApiError(401, "Unauthorized Request")
+        }
+
         const oldAccessToken = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
         if (oldAccessToken) {
             await BlacklistAccessToken.create({ accessToken: oldAccessToken });
         }
-
-        await BlacklistRefreshToken({ refreshToken: incomingRefreshToken })
+        
+        await BlacklistRefreshToken.create({ refreshToken: incomingRefreshToken })
     
         const { accessToken, refreshToken } = await generateAccessAndRefreshToken(decodedToken._id)
+
+        user.refreshToken = refreshToken
+        await user.save({ validateBeforeSave: false })
     
         const options = {
             httpOnly: true,
@@ -259,20 +300,11 @@ const getUser = asyncHandler( async (req, res) => {
 })
 
 const getUserNotes = asyncHandler( async (req, res) => { 
-
-    let userId;
-    if (req.user?._id) {
-        try {
-            userId = new mongoose.Types.ObjectId(String(req.user._id));
-        } catch (error) {
-            throw new ApiError(400, "Invalid User ID");
-        }
-    }
-
+    
     const notes = await Note.aggregate([
         {
             $match: {
-                userId,
+                user: req.user._id,
             }
         },
         {
@@ -312,6 +344,10 @@ const getUserNotes = asyncHandler( async (req, res) => {
             }
         }
     ]);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, notes));
 })
 
 export { 
@@ -322,5 +358,6 @@ export {
     refreshAccessToken,
     changePassword,
     getUserNotes,
-    getUser
+    getUser,
+    newOtp
 }
