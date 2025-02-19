@@ -8,7 +8,9 @@ import {
     changePassword,
     getUserNotes,
     getUser,
-    newOtp
+    newOtp,
+    requestForgetPassword,
+    resetPassword
 } from "../controllers/user.controller.js";
 import { authUser } from "../middlewares/auth.middleware.js";
 
@@ -23,5 +25,7 @@ router.route("/user").get(authUser, getUser);
 router.route("/user-notes").get(authUser, getUserNotes);
 router.route("/change-password").post(authUser, changePassword);
 router.route("/refresh-token").post(refreshAccessToken);
+router.route("/request-forget-password").post(requestForgetPassword);
+router.route("/reset-password").post(resetPassword);
 
 export default router;

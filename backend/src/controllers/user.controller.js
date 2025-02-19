@@ -29,12 +29,12 @@ const registerUser = asyncHandler(async (req, res) => {
     const { fullName, email, password } = req.body;
 
     if (!fullName || !email || !password) {
-        return new ApiError(400, "All fields are required!");
+        throw new ApiError(400, "All fields are required!");
     }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
-        return new ApiError(400, "User already exists!");
+        throw new ApiError(400, "User already exists!");
     }
 
     const otp = generateOtp()
@@ -42,7 +42,7 @@ const registerUser = asyncHandler(async (req, res) => {
     try {
         await sendOtpMail(email, otp);
     } catch (error) {
-        return new ApiError(500, "Error sending OTP email");
+        throw new ApiError(500, "Error sending OTP email");
     }
 
     const otpData = await Otp.create({
@@ -62,15 +62,15 @@ const verifyOtp = async (req, res) => {
     const otpData = await Otp.findOne({ email });
   
     if (!otpData) {
-      return new ApiError(400, "Otp not found");
+      throw new ApiError(400, "Otp not found");
     }
 
     if (otpData.expiresAt < Date.now()) {
-      return res.status(400).json({ message: 'OTP expired' });
+      throw new ApiError(400, "Otp expired");
     }
 
     if (otpData.otp !== otp) {
-      return res.status(400).json({ message: 'Invalid OTP' });
+      throw new ApiError(400, "Invalid otp");
     }
   
     const newUser = await User.create({
@@ -99,7 +99,7 @@ const newOtp = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
     if(!email){
-        return new ApiError(400, "Email is required!")
+        throw new ApiError(400, "Email is required!")
     }
 
     const oldOtp = await Otp.findOne({ email });
@@ -113,7 +113,7 @@ const newOtp = asyncHandler(async (req, res) => {
     try {
         await sendOtpMail(email, otp);
     } catch (error) {
-        return new ApiError(500, "Error sending OTP email");
+        throw new ApiError(500, "Error sending OTP email");
     }
 
     const otpData = await Otp.create({
@@ -131,17 +131,17 @@ const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-        return new ApiError(400, "All fields are required!");
+        throw new ApiError(400, "All fields are required!");
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-        return new ApiError(400, "User not found!");
+        throw new ApiError(400, "User not found!");
     }
 
     const isPasswordCorrect = await user.isPasswordCorrect(password);
     if (!isPasswordCorrect) {
-        return new ApiError(400, "Password is incorrect!");
+        throw new ApiError(400, "Password is incorrect!");
     }
 
     if (user.refreshToken) {
@@ -166,21 +166,21 @@ const changePassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword, confirmNewPassword } = req.body;
 
     if (!oldPassword || !newPassword || !confirmNewPassword) {
-        return new ApiError(400, "All fields are required!");
+        throw new ApiError(400, "All fields are required!");
     }
 
     if (newPassword !== confirmNewPassword) {
-        return new ApiError(400, "Passwords do not match!");
+        throw new ApiError(400, "Passwords do not match!");
     }
 
     const user = await User.findById(req.user?._id);
     if (!user) {
-        return new ApiError(404, "User not found!");
+        throw new ApiError(404, "User not found!");
     }
 
     const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
     if (!isPasswordCorrect) {
-        return new ApiError(400, "Old password is incorrect!");
+        throw new ApiError(400, "Old password is incorrect!");
     }
 
     user.password = newPassword;
@@ -228,7 +228,7 @@ const logoutUser = asyncHandler( async (req, res) => {
         .clearCookie("refreshToken", options)
         .json(new ApiResponse(200, {}, "User logged Out"))
     } catch (error) {
-        return new ApiError(500, error?.message || "Something went wrong at servers end while logging out")
+        throw new ApiError(500, error?.message || "Something went wrong at servers end while logging out")
     }
 })
 
@@ -350,6 +350,73 @@ const getUserNotes = asyncHandler( async (req, res) => {
         .json(new ApiResponse(200, notes));
 })
 
+const requestForgetPassword = asyncHandler( async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        throw new ApiError(400, "Email is required!");
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new ApiError(400, "User not found!");
+    }
+
+    const otp = generateOtp();
+
+    try {
+        await sendOtpMail(email, otp);
+    } catch (error) {
+        throw new ApiError(500, "Error sending OTP email");
+    }
+
+    const otpData = await Otp.create({
+        email,
+        otp,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "Otp sent to email"));
+})
+
+const resetPassword = asyncHandler( async (req, res) => {
+    const { email, otp, password } = req.body;
+
+    if (!email || !otp || !password) {
+        throw new ApiError(400, "All fields are required!");
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new ApiError(400, "User not found!");
+    }
+
+    const otpData = await Otp.findOne({ email });
+    if (!otpData) {
+        throw new ApiError(400, "Otp not found!");
+    }
+
+    if (otpData.otp !== otp) {
+        throw new ApiError(400, "Invalid otp!");
+    }
+
+    if (otpData.expiresAt < Date.now()) {
+        throw new ApiError(400, "Otp expired!");
+    }
+
+    await otp.deleteOne({ email });
+
+    user.password = password;
+    await user.save();
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, "Password reset successfully!"));
+})
+
 export { 
     registerUser,
     loginUser,
@@ -359,5 +426,7 @@ export {
     changePassword,
     getUserNotes,
     getUser,
-    newOtp
+    newOtp,
+    requestForgetPassword,
+    resetPassword
 }
