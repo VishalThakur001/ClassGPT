@@ -1,6 +1,9 @@
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { login } from "../features/authSlice";
+import axios from "axios";
 
 export default function Login() {
   const {
@@ -11,20 +14,33 @@ export default function Login() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState("");
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const onSubmit = async (data) => {
     setIsLoggingIn(true);
     setLoginError("");
 
-    setTimeout(() => {
-      if (data.email === "user@example.com" && data.password === "password123") {
-        console.log("Login successful!");
-        navigate("/home");
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/users/login`, data);
+      const user = response.data.data.user;
+      dispatch(login({user}));
+      localStorage.setItem("accessToken", response.data.data.accessToken);
+      localStorage.setItem("refreshToken", response.data.data.refreshToken);
+      navigate("/home");
+    } catch (error) {
+      if (error.response) {
+        console.error("Error Response:", error.response.data);
+        setLoginError(error.response.data.message);
+      } else if (error.request) {
+        console.error("No Response from Server:", error.request);
+        setLoginError("No response from server. Please try again.");
       } else {
-        setLoginError("Invalid email or password.");
+        console.error("Axios Error:", error.message);
+        setLoginError("Something went wrong. Try again.");
+        }
+      } finally {
         setIsLoggingIn(false);
       }
-    }, 2000);
   };
 
   return (
@@ -43,7 +59,7 @@ export default function Login() {
               placeholder="Enter your email"
               {...register("email", {
                 required: "Email is required",
-                pattern: { value: /^\S+@\S+$/i, message: "Invalid email address" },
+                pattern: { value: /^[a-zA-Z]+\d*@gmail\.com$/, message: "Invalid email address" },
               })}
               className="w-full mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#0E9272]"
             />

@@ -197,18 +197,29 @@ const changePassword = asyncHandler(async (req, res, next) => {
 });
 
 const logoutUser = asyncHandler( async (req, res, next) => {
-    
-    const accessToken = req.cookies?.accessToken || req.headers["authorization"]?.split(" ")[1];
-    const refreshToken = req.cookies?.refreshToken || req.headers["x-refresh-token"];
-    
-    if (!refreshToken){
-        return next(new ApiError(400, "Refresh token required"));
-    }
-    if(!accessToken){
-        return next(new ApiError(400, "Access token required"));
-    }
-    
     try {
+        const accessToken = req.cookies?.accessToken || req.headers["authorization"]?.split(" ")[1];
+        const refreshToken = req.cookies?.refreshToken || req.headers["x-refresh-token"];
+        
+        if (!refreshToken){
+            return next(new ApiError(400, "Refresh token required"));
+        }
+        if(!accessToken){
+            return next(new ApiError(400, "Access token required"));
+        }
+    
+        const isBlacklisted = await BlacklistRefreshToken.findOne({ refreshToken });
+    
+        if(isBlacklisted){
+            return next(new ApiError(401, "Unauthorized request - Refresh Token is blacklisted"));
+        }
+
+        console.log("user id", req.user._id);
+    
+        if(!req.user || !req.user._id){
+            return next(new ApiError(401, "Unauthorized request"));
+        } 
+        
         await BlacklistAccessToken.create({ accessToken });
         await BlacklistRefreshToken.create({ refreshToken });
         
@@ -230,12 +241,12 @@ const logoutUser = asyncHandler( async (req, res, next) => {
         }
     
         return res
-        .status(200)
-        .clearCookie("accessToken", options)
-        .clearCookie("refreshToken", options)
-        .json(new ApiResponse(200, {}, "User logged Out"))
+            .status(200)
+            .clearCookie("accessToken", options)
+            .clearCookie("refreshToken", options)
+            .json(new ApiResponse(200, {}, "User logged Out"))
     } catch (error) {
-        return next(new ApiError(500, error?.message || "Something went wrong at servers end while logging out"));
+        next(new ApiError(401, error.message || "Invalid or expired token"));
     }
 })
 
@@ -250,7 +261,7 @@ const refreshAccessToken = asyncHandler( async (req, res, next) => {
     const checkBlacklisted = await BlacklistRefreshToken.findOne({refreshToken: incomingRefreshToken})
 
     if(checkBlacklisted){
-        return next(new ApiError(401, "Unauthorized Request - Token is blacklisted"));
+        return next(new ApiError(401, "Unauthorized Request - Refresh Token is blacklisted"));
     }
 
     try {

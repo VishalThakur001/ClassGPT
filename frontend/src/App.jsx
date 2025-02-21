@@ -26,12 +26,12 @@ function App() {
           </AuthLayout>
         } />
         <Route path="/signup" element={
-          <AuthLayout authentication={false}> 
+          <AuthLayout authentication={false}>
             <SignupPage />
           </AuthLayout>
         } />
         <Route path="/home" element={
-          <AuthLayout authentication={true}> 
+          <AuthLayout> 
             <Home />
           </AuthLayout>
         } />

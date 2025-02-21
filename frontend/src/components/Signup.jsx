@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useDispatch } from "react-redux"
+import { login } from "../features/authSlice"
 
 export default function Signup() {
+  const dispatch = useDispatch();
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({});
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [otpError, setOtpError] = useState("");
   const navigate = useNavigate();
   const {
@@ -15,26 +20,79 @@ export default function Signup() {
     formState: { errors },
   } = useForm();
 
-  const onSignupSubmit = (data) => {
-    console.log("Sending OTP...");
+  const onSignupSubmit = async (data) => {
     setUserData(data);
-    setStep(2);
-    setValue("otp", "");
+    setIsRequestingOtp(true);
+    
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/users/register`, data);
+      if(response.status !== 200){
+        setIsRequestingOtp(false);
+        throw new Error(response.data.error);
+      }
+      else{
+        setStep(2);
+        setValue("otp", "");
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+    } finally {
+      setIsRequestingOtp(false);
+    }
   };
 
   const onOtpSubmit = async (otpData) => {
     setIsVerifying(true);
     setOtpError("");
 
-    setTimeout(() => {
-      if (otpData.otp === "123456") {
-        console.log("OTP Verified! Redirecting...");
+    try {
+        const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/users/verify-otp`, {
+            email: userData.email,
+            fullName: userData.fullName,
+            password: userData.password,
+            otp: otpData.otp,
+        });
+        const user = response.data.data.user;
+        dispatch(login({user}));
+        localStorage.setItem("accessToken", response.data.data.accessToken);
+        localStorage.setItem("refreshToken", response.data.data.refreshToken);
         navigate("/home");
-      } else {
-        setOtpError("Invalid OTP. Please try again.");
+    } catch (error) {
         setIsVerifying(false);
+
+        if (error.response) {
+            console.error("Error Response:", error.response.data);
+            setOtpError(error.response.data.message);
+        } else if (error.request) {
+            console.error("No Response from Server:", error.request);
+            setOtpError("No response from server. Please try again.");
+        } else {
+            console.error("Axios Error:", error.message);
+            setOtpError("Something went wrong. Try again.");
+        }
+    } finally {
+        setIsVerifying(false);
+    }
+};
+
+  const requestNewOtp = async () => {
+    setIsRequestingOtp(true);
+    setOtpError("");
+
+    try {
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/users/new-otp`, {
+        email: userData.email,
+      });
+      if(response.status !== 200){
+        setIsRequestingOtp(false);
+        throw new Error(response.data.error);
       }
-    }, 2000);
+    } catch (error) {
+      console.error("Resend OTP error:", error);
+      setOtpError(error.message);
+    } finally {
+      setIsRequestingOtp(false);
+    }
   };
 
   return (
@@ -66,7 +124,7 @@ export default function Signup() {
                   placeholder="Email*"
                   {...register("email", {
                     required: "Email is required",
-                    pattern: { value: /^\S+@\S+$/i, message: "Invalid email address" },
+                    pattern: { value: /^[a-zA-Z]+\d*@gmail\.com$/, message: "Invalid email address" },
                   })}
                   className="w-full mt-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#0E9272]"
                 />
@@ -89,9 +147,12 @@ export default function Signup() {
 
               <button
                 type="submit"
-                className="w-full bg-[#0E9272] text-xl text-white py-3 rounded-md hover:bg-[#5aa27afa] transition"
+                disabled={isRequestingOtp}
+                className={`w-full text-xl text-white py-3 rounded-md transition ${
+                  isRequestingOtp ? "bg-gray-400 cursor-not-allowed" : "bg-[#0E9272] hover:bg-[#5aa27afa]"
+                }`}
               >
-                Continue
+                {isRequestingOtp ? "Processing..." : "Continue"}
               </button>
             </form>
             <p className="text-center text-gray-600 mt-4">
@@ -123,13 +184,23 @@ export default function Signup() {
               <button
                 type="submit"
                 disabled={isVerifying}
-                className={`w-full text-xl text-white py-3 rounded-md transition ${
+                className={`w-full text-xl text-white py-1.5 rounded-md transition ${
                   isVerifying ? "bg-gray-400 cursor-not-allowed" : "bg-[#0E9272] hover:bg-[#5aa27afa]"
                 }`}
               >
                 {isVerifying ? "Verifying..." : "Verify OTP"}
               </button>
             </form>
+
+            <button
+              onClick={requestNewOtp}
+              disabled={isRequestingOtp}
+              className={`w-full mt-2 text-xl text-white py-1.5 rounded-md transition ${
+                isRequestingOtp ? "bg-gray-400 cursor-not-allowed" : "bg-[#0E9272] hover:bg-[#5aa27afa]"
+              }`}
+            >
+              {isRequestingOtp ? "Sending..." : "New OTP"}
+            </button>
           </>
         )}
       </div>
