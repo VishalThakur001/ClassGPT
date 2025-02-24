@@ -213,8 +213,6 @@ const logoutUser = asyncHandler( async (req, res, next) => {
         if(isBlacklisted){
             return next(new ApiError(401, "Unauthorized request - Refresh Token is blacklisted"));
         }
-
-        console.log("user id", req.user._id);
     
         if(!req.user || !req.user._id){
             return next(new ApiError(401, "Unauthorized request"));
@@ -388,7 +386,7 @@ const requestForgetPassword = asyncHandler( async (req, res, next) => {
         return next(new ApiError(500, "Error sending OTP email"));
     }
 
-    const otpData = await Otp.create({
+    await Otp.create({
         email,
         otp,
         createdAt: Date.now(),
@@ -425,7 +423,7 @@ const resetPassword = asyncHandler( async (req, res, next) => {
         return next(new ApiError(400, "Otp expired!"));
     }
 
-    await otp.deleteOne({ email });
+    await Otp.deleteOne({ email });
 
     user.password = password;
     await user.save();

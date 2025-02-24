@@ -7,8 +7,6 @@ import { User } from "../models/user.model.js";
 export const authUser = asyncHandler( async(req, _, next) => {
     const accessToken = req.cookies?.accessToken || req.headers.authorization?.split(' ')[1];
     
-    console.log(accessToken);
-    
     if(!accessToken){
         throw new ApiError(401, "Unauthorized request")
     }
