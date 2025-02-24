@@ -40,19 +40,19 @@ function App() {
             <ForgetPasswordPage />
           </AuthLayout>
         }/>
-        <Route path="/logout" element={
-         <AuthLayout authentication={true}>
-            <LogoutPage />
-          </AuthLayout>
-        } />
         <Route path="/reset-password" element={
           <AuthLayout authentication={false}>
             <ResetPassword />
           </AuthLayout> 
         } />
         <Route path="/change-password" element={
-          <AuthLayout authentication={true}>
+          <AuthLayout authentication>
             <ChangePassword />
+          </AuthLayout>
+        } />
+        <Route path="/logout" element={
+         <AuthLayout authentication={true}>
+            <LogoutPage />
           </AuthLayout>
         } />
       </Routes>

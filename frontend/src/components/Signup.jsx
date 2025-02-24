@@ -152,7 +152,7 @@ export default function Signup() {
                   isRequestingOtp ? "bg-gray-400 cursor-not-allowed" : "bg-[#0E9272] hover:bg-[#5aa27afa]"
                 }`}
               >
-                {isRequestingOtp ? "Processing..." : "Continue"}
+                Continue
               </button>
             </form>
             <p className="text-center text-gray-600 mt-4">
