@@ -4,7 +4,7 @@ import {
   NewChatIcon,
   OldNotesIcon,
   BarIcon,
-  HistroyDropDown
+  HistoryDropDown
 } from "./index";
 
 const Header = () => {
@@ -29,7 +29,7 @@ const Header = () => {
             <BarIcon />
           </button>
           {isHistoryOpen && (
-            <HistroyDropDown
+            <HistoryDropDown
               onClose={() => setIsHistoryOpen(false)}
               historyData={historyData}
             />
@@ -40,7 +40,7 @@ const Header = () => {
             <OldNotesIcon />
           </button>
           {isHistoryOpen && (
-            <HistroyDropDown
+            <HistoryDropDown
               onClose={() => setIsHistoryOpen(false)}
               historyData={historyData}
             />

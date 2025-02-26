@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { NewChatIcon } from "./index"
+import { NewChatIcon } from "./index";
+import HistoryComponent from "./HistoryComponent";
 
-const HistroyDropDown = ({ onClose, historyData }) => {
+const HistoryDropDown = ({ onClose, historyData, onRename, onShare, onDelete }) => {
   const sidebarRef = useRef(null);
 
-  // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
@@ -26,12 +26,15 @@ const HistroyDropDown = ({ onClose, historyData }) => {
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="fixed left-0 top-0 h-full w-72 bg-[#171717] text-white shadow-lg p-4 z-50 flex flex-col"
     >
-      {/* Header with New Chat Button */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">History</h2>
-        <button 
+        <button
           className="text-white px-3 py-1 rounded-md"
-          onClick={onClose}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent unexpected sidebar close
+            onClose();
+          }}
         >
           <NewChatIcon />
         </button>
@@ -40,25 +43,24 @@ const HistroyDropDown = ({ onClose, historyData }) => {
       {/* History List */}
       <div className="flex-1 overflow-y-auto">
         {Object.entries(historyData).map(([category, items]) => (
-          <div key={category} className="mb-3">
-            <p className="text-gray-400 text-sm">{category}</p>
-            {items.length > 0 ? (
-              items.map((item, index) => (
-                <p key={index} className="px-2 py-1 text-white cursor-pointer hover:bg-gray-800 rounded-md">
-                  {item}
-                </p>
-              ))
-            ) : (
-              <p className="text-gray-500 text-sm italic px-2 py-1">No history</p>
-            )}
-          </div>
+          <HistoryComponent
+            key={category}
+            title={category}
+            items={items}
+            onRename={onRename}
+            onShare={onShare}
+            onDelete={onDelete}
+          />
         ))}
       </div>
 
       {/* Close Button */}
-      <button 
+      <button
         className="mt-4 text-sm text-gray-400 hover:text-white self-center"
-        onClick={onClose}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
       >
         Close Sidebar
       </button>
@@ -66,4 +68,4 @@ const HistroyDropDown = ({ onClose, historyData }) => {
   );
 };
 
-export default HistroyDropDown;
+export default HistoryDropDown;

@@ -10,8 +10,9 @@ import OldNotesIcon from "./icons/OldNotesIcon";
 import BarIcon from "./icons/BarIcon";
 import UploadIcon from "./icons/UploadIcon";
 import SearchIcon from "./icons/SearchIcon";
-import HistroyDropDown from "./HistroyDropDown";
+import HistoryDropDown from "./HistoryDropDown";
 import UserMenu from "./UserMenu";
+import HistoryComponent from "./HistoryComponent";
 
 export {
     AuthLayout,
@@ -26,6 +27,7 @@ export {
     BarIcon,
     UploadIcon,
     SearchIcon,
-    HistroyDropDown,
-    UserMenu
+    HistoryDropDown,
+    UserMenu,
+    HistoryComponent
 }
